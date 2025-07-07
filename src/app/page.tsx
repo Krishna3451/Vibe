@@ -19,9 +19,9 @@ const Page = () => {
   );
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="p-4 max-w-7xl mx-auto flex flex-col justify-center items-center mt-60">
       <Input value={value} onChange={(e) => setValue(e.target.value)} />
-      <Button onClick={() => invoke.mutate({ value: value })}>
+      <Button className="mt-5" onClick={() => invoke.mutate({ value: value })}>
         Invoke Background Job
       </Button>
     </div>
