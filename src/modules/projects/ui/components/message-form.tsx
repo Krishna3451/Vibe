@@ -22,31 +22,31 @@ const formSchema = z.object({
 });
 
 export const MessageForm = ({ projectId }: Props) => {
-  
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       value: "",
+      projectId,
     },
   });
 
-  const createMessage = useMutation(trpc.messages.create.mutationOptions({
-    onSuccess: (data) =>{
-      form.reset();
-      queryClient.invalidateQueries(
-        trpc.messages.getMany.queryOptions({ projectId})
-      )
-      // TODO: Invalidate Usage Error
-    },
-    onError: (error) =>{
-      //Todo: Redirect to Pricing page
-      toast.error(error.message)
-      
-
-    }
-  }));
+  const createMessage = useMutation(
+    trpc.messages.create.mutationOptions({
+      onSuccess: (data) => {
+        form.reset();
+        queryClient.invalidateQueries(
+          trpc.messages.getMany.queryOptions({ projectId })
+        );
+        // TODO: Invalidate Usage Error
+      },
+      onError: (error) => {
+        //Todo: Redirect to Pricing page
+        toast.error(error.message);
+      },
+    })
+  );
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     await createMessage.mutateAsync({
@@ -84,9 +84,12 @@ export const MessageForm = ({ projectId }: Props) => {
               className="pt-4 resize-none border-none w-full outline-none bg-transparent"
               placeholder="What would you like to build?"
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  form.handleSubmit(onSubmit)(e);
+                if (e.key === "Enter") {
+                  // If Enter with Ctrl/Cmd OR Enter without Shift → submit
+                  if ((e.ctrlKey || e.metaKey) || !e.shiftKey) {
+                    e.preventDefault();
+                    form.handleSubmit(onSubmit)();
+                  }
                 }
               }}
             />
@@ -100,16 +103,21 @@ export const MessageForm = ({ projectId }: Props) => {
             &nbsp;to submit
           </div>
           <Button
+            type="submit"
             disabled={isButtonDisabled}
+            onClick={() => form.handleSubmit(onSubmit)()}
             className={cn(
-              "size-8 rounded-full",
-              hasContent ? "bg-black hover:bg-black/90" : "bg-muted-foreground border"
+              "h-8 w-8 rounded-full transition-colors",
+              // Always dark when hasContent
+              hasContent
+                ? "bg-black hover:bg-black/90 disabled:bg-black disabled:opacity-100"
+                : "bg-muted-foreground border"
             )}
           >
             {isPending ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <Loader2Icon className="h-4 w-4 animate-spin" />
             ) : (
-              <ArrowUpIcon className="size-4" />
+              <ArrowUpIcon className="h-4 w-4" />
             )}
           </Button>
         </div>
