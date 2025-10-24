@@ -1,5 +1,4 @@
 import { inngest } from "./client";
-import { Sandbox } from "@e2b/code-interpreter";
 import {
   createAgent,
   createNetwork,
@@ -7,7 +6,7 @@ import {
   openai,
   type Tool,
 } from "@inngest/agent-kit";
-import { getSandbox, lastAssistantTextMessageContent } from "./utils";
+import { getSandbox, createSandboxWithTimeout, lastAssistantTextMessageContent } from "./utils";
 import { prisma } from "@/lib/db";
 
 import { z } from "zod";
@@ -53,9 +52,47 @@ export const codeAgentFunction = inngest.createFunction(
       return defaultProject.id;
     });
 
-    const sandboxId = await step.run("get-sandbox-id", async () => {
-      const sandbox = await Sandbox.create("vibe-nextjs-project-krishna-3");
-      return sandbox.sandboxId;
+    const sandboxInfo = await step.run("get-or-create-sandbox", async () => {
+      // Try to find existing active sandbox for this project
+      const existingFragment = await prisma.fragment.findFirst({
+        where: {
+          message: {
+            projectId: finalProjectId
+          },
+          sandboxId: {
+            not: null
+          },
+          sandboxExpiresAt: {
+            gt: new Date() // Only get non-expired sandboxes
+          }
+        },
+        orderBy: {
+          sandboxCreatedAt: 'desc'
+        }
+      });
+
+      if (existingFragment?.sandboxId) {
+        try {
+          // Try to connect to existing sandbox
+          await getSandbox(existingFragment.sandboxId);
+          console.log("Reusing existing sandbox:", existingFragment.sandboxId);
+          return {
+            sandboxId: existingFragment.sandboxId,
+            isNew: false
+          };
+        } catch (error) {
+          console.log("Existing sandbox not accessible, creating new one:", error);
+        }
+      }
+
+      // Create new sandbox with extended timeout
+      const sandbox = await createSandboxWithTimeout("vibe-nextjs-project-krishna-3");
+      console.log("Created new sandbox:", sandbox.sandboxId);
+      
+      return {
+        sandboxId: sandbox.sandboxId,
+        isNew: true
+      };
     });
 
     const codeAgent = createAgent<AgentState>({
@@ -63,10 +100,8 @@ export const codeAgentFunction = inngest.createFunction(
       description: "An expert coding Agent",
       system: PROMPT,
       model: openai({
-        model: "gpt-4o-mini",
-        defaultParameters: {
-          temperature: 0.1,
-        },
+        model: "gpt-5",
+        
       }),
 
       tools: [
@@ -82,7 +117,7 @@ export const codeAgentFunction = inngest.createFunction(
 
             try {
               console.log("Getting sandbox for terminal command...");
-              const sandbox = await getSandbox(sandboxId);
+              const sandbox = await getSandbox(sandboxInfo.sandboxId);
               console.log("Running terminal command:", command);
 
               const result = await sandbox.commands.run(command, {
@@ -122,7 +157,7 @@ export const codeAgentFunction = inngest.createFunction(
           }),
           handler: async (
             { files },
-            { step, network }: Tool.Options<AgentState>
+            { network }: Tool.Options<AgentState>
           ) => {
             console.log(
               "CreateOrUpdateFiles tool called with files:",
@@ -141,7 +176,7 @@ export const codeAgentFunction = inngest.createFunction(
               );
 
               console.log("Getting sandbox...");
-              const sandbox = await getSandbox(sandboxId);
+              const sandbox = await getSandbox(sandboxInfo.sandboxId);
               console.log("Sandbox obtained successfully");
 
               for (const file of files) {
@@ -189,7 +224,7 @@ export const codeAgentFunction = inngest.createFunction(
 
             try {
               console.log("Getting sandbox for readFiles...");
-              const sandbox = await getSandbox(sandboxId);
+              const sandbox = await getSandbox(sandboxInfo.sandboxId);
               const contents = [];
               for (const file of files) {
                 console.log("Reading file:", file);
@@ -291,7 +326,7 @@ export const codeAgentFunction = inngest.createFunction(
       Object.keys(result.state.data.files || {}).length === 0;
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      const sandbox = await getSandbox(sandboxId);
+      const sandbox = await getSandbox(sandboxInfo.sandboxId);
       const host = sandbox.getHost(3000);
       return `https://${host}`;
     });
@@ -307,6 +342,9 @@ export const codeAgentFunction = inngest.createFunction(
           },
         });
       }
+      // Calculate expiration time (1 hour from now - E2B maximum)
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
       return await prisma.message.create({
         data: {
           content: result.state.data.summary || "Task completed",
@@ -316,8 +354,11 @@ export const codeAgentFunction = inngest.createFunction(
           fragment: {
             create: {
               sandboxUrl: sandboxUrl,
+              sandboxId: sandboxInfo.sandboxId,
               title: "Fragment",
               files: result.state.data.files || {},
+              sandboxCreatedAt: sandboxInfo.isNew ? new Date() : null,
+              sandboxExpiresAt: expiresAt,
             },
           },
         },
