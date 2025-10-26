@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from '@clerk/nextjs'
 import { TRPCReactProvider } from "@/trpc/client";
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
@@ -44,6 +45,7 @@ export default function RootLayout({
               <Toaster />
               {children}
               <Analytics />
+              <SpeedInsights />
             </ThemeProvider>
           </body>
         </html>
