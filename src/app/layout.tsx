@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from '@clerk/nextjs'
 import { TRPCReactProvider } from "@/trpc/client";
+import { Analytics } from "@vercel/analytics/next"
 
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
@@ -42,6 +43,7 @@ export default function RootLayout({
             >
               <Toaster />
               {children}
+              <Analytics />
             </ThemeProvider>
           </body>
         </html>
