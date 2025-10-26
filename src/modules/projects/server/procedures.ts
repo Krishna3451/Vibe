@@ -12,9 +12,19 @@ export const projectsRouter = createTRPCRouter({
         id: z.string().min(1, { message: "Project ID is required" }),
       })
     )
-    .query(async ({ input }) => {
-      const existingProject = await prisma.project.findUnique({
-        where: { id: input.id },
+    .query(async ({ input, ctx }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be signed in to view a project",
+        });
+      }
+
+      const existingProject = await prisma.project.findFirst({
+        where: { 
+          id: input.id,
+          userId: ctx.userId, // Ensure user owns the project
+        },
         include: {
           messages: {
             include: {
@@ -29,13 +39,31 @@ export const projectsRouter = createTRPCRouter({
       if (!existingProject) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Project not found",
+          message: "Project not found or access denied",
         });
       }
       return existingProject;
     }),
-  getMany: baseProcedure.query(async () => {
+  getMany: baseProcedure.query(async ({ ctx }) => {
+    if (!ctx.userId) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be signed in to view projects",
+      });
+    }
+
     const projects = await prisma.project.findMany({
+      where: {
+        userId: ctx.userId,
+      },
+      include: {
+        messages: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1, // Only get the latest message for preview
+        },
+      },
       orderBy: {
         updatedAt: "desc",
       },
@@ -51,12 +79,20 @@ export const projectsRouter = createTRPCRouter({
           .max(10000, { message: "Value is too long" }),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be signed in to create a project",
+        });
+      }
+
       const createdProject = await prisma.project.create({
         data: {
           name: generateSlug(2, {
             format: "kebab",
           }),
+          userId: ctx.userId,
           messages: {
             create: {
               content: input.value,
@@ -84,9 +120,19 @@ export const projectsRouter = createTRPCRouter({
         id: z.string(),
       })
     )
-    .query(async ({ input }) => {
-      const project = await prisma.project.findUnique({
-        where: { id: input.id },
+    .query(async ({ input, ctx }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be signed in to view a project",
+        });
+      }
+
+      const project = await prisma.project.findFirst({
+        where: { 
+          id: input.id,
+          userId: ctx.userId, // Ensure user owns the project
+        },
         include: {
           messages: {
             include: {
@@ -100,7 +146,10 @@ export const projectsRouter = createTRPCRouter({
       });
 
       if (!project) {
-        throw new Error("Project not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Project not found or access denied",
+        });
       }
 
       return project;

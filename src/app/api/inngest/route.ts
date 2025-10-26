@@ -3,11 +3,14 @@ import { inngest } from "@/inngest/client";
 import { codeAgentFunction } from "@/inngest/functions";
 import { sandboxMaintenanceFunction } from "@/inngest/sandbox-maintenance";
 
-// Create an API that serves zero functions
-export const { GET, POST, PUT } = serve({
+const handler = serve({
   client: inngest,
   functions: [
     codeAgentFunction,
-    sandboxMaintenanceFunction
+    sandboxMaintenanceFunction,
   ],
 });
+
+export const GET = handler;
+export const POST = handler;
+export const PUT = handler;

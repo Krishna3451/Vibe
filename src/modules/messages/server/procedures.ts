@@ -2,6 +2,7 @@ import { inngest } from '@/inngest/client';
 import {prisma} from '@/lib/db'
 import { baseProcedure, createTRPCRouter } from '@/trpc/init'
 import {z} from 'zod'
+import { TRPCError } from '@trpc/server';
 
 
 export const messagesRouter = createTRPCRouter({
@@ -11,7 +12,29 @@ export const messagesRouter = createTRPCRouter({
                 projectId: z.string().min(1, {message: "Project ID is required"})
             })
         )
-        .query( async ({ input })=> {
+        .query( async ({ input, ctx })=> {
+            if (!ctx.userId) {
+                throw new TRPCError({
+                    code: "UNAUTHORIZED",
+                    message: "You must be signed in to view messages",
+                });
+            }
+
+            // Verify the user owns the project
+            const project = await prisma.project.findFirst({
+                where: {
+                    id: input.projectId,
+                    userId: ctx.userId,
+                },
+            });
+
+            if (!project) {
+                throw new TRPCError({
+                    code: "NOT_FOUND",
+                    message: "Project not found or access denied",
+                });
+            }
+
             const messages = await prisma.message.findMany({
                 where: {
                     projectId: input.projectId,
@@ -33,30 +56,35 @@ export const messagesRouter = createTRPCRouter({
                 projectId: z.string().min(1, {message: "Project ID is required"})
             })
         )
-        .mutation(async ({input}) => {
-           let projectId = input.projectId;
-           
-           // If no projectId provided, create or find a default project
-           if (!projectId) {
-               let defaultProject = await prisma.project.findFirst({
-                   where: { name: "Default Project" }
-               });
-               
-               if (!defaultProject) {
-                   defaultProject = await prisma.project.create({
-                       data: { name: "Default Project" }
-                   });
-               }
-               
-               projectId = defaultProject.id;
-           }
+        .mutation(async ({input, ctx}) => {
+            if (!ctx.userId) {
+                throw new TRPCError({
+                    code: "UNAUTHORIZED",
+                    message: "You must be signed in to create a message",
+                });
+            }
+
+            // Verify the user owns the project
+            const project = await prisma.project.findFirst({
+                where: {
+                    id: input.projectId,
+                    userId: ctx.userId,
+                },
+            });
+
+            if (!project) {
+                throw new TRPCError({
+                    code: "NOT_FOUND",
+                    message: "Project not found or access denied",
+                });
+            }
 
            const createdMessage = await prisma.message.create({
                 data:{
                     content: input.value,
                     role: "USER",
                     type: "RESULT",
-                    projectId: projectId,
+                    projectId: input.projectId,
                 },
             });
 
@@ -64,7 +92,7 @@ export const messagesRouter = createTRPCRouter({
                 name: "code-agent/run",
                 data:{
                     value: input.value,
-                    projectId: projectId,
+                    projectId: input.projectId,
                 }
             })
 

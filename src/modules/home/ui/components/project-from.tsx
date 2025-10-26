@@ -14,6 +14,8 @@ import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { PROJECT_TEMPLATES } from "../../constants";
+import { useUser } from '@clerk/nextjs';
+import { useClerk } from '@clerk/nextjs';
 
 const formSchema = z.object({
   value: z.string().min(1, { message: "Message is required" }),
@@ -23,6 +25,8 @@ export const ProjectFrom = () => {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { isSignedIn } = useUser();
+  const { openSignIn } = useClerk();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -45,6 +49,12 @@ export const ProjectFrom = () => {
   );
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!isSignedIn) {
+      // Open Clerk sign-in modal
+      openSignIn();
+      return;
+    }
+    
     await createProject.mutateAsync({
       value: values.value,
     });

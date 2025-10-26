@@ -16,6 +16,7 @@ import { CodeIcon, CrownIcon, EyeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FileExplorer } from "@/components/file-explorer";
+import { ProjectGeneratingLoader } from "../components/project-generating-loader";
 
 interface Props {
   projectId: string;
@@ -30,6 +31,16 @@ export const ProjectView = ({ projectId }: Props) => {
       id: projectId,
     })
   );
+
+  // Check if project is generating (has messages but no fragments yet)
+  const { data: messages } = useSuspenseQuery(
+    trpc.messages.getMany.queryOptions({
+      projectId: projectId,
+    })
+  );
+
+  const hasFragments = messages.some((message) => message.fragment !== null);
+  const isGenerating = messages.length > 0 && !hasFragments;
 
   return (
     <div className="h-screen">
@@ -52,42 +63,46 @@ export const ProjectView = ({ projectId }: Props) => {
         </ResizablePanel>
         <ResizableHandle className="hover:bg-primary transition-colors" />
         <ResizablePanel defaultSize={35} minSize={20}>
-          <Tabs
-            className="h-full gap-y-0"
-            defaultValue="Preview"
-            value={tabState}
-            onValueChange={(value) => setTabState(value as "Preview" | "Code")}
-          >
-            <div className="w-full flex items-center p-2 border-b gap-x-2">
-              <TabsList className="h-8 p-0 border rounded-md">
-                <TabsTrigger value="Preview" className="rounded-md">
-                  <EyeIcon /> <span>Demo</span>
-                </TabsTrigger>
-                <TabsTrigger value="Code" className="rounded-md">
-                  <CodeIcon /> <span>Code</span>
-                </TabsTrigger>
-              </TabsList>
-              <div className="ml-auto flex items-center gap-x-2">
-                <Button asChild size="sm" variant="default">
-                  <Link href="/pricing">
-                    <CrownIcon /> Upgrade
-                  </Link>
-                </Button>
+          {isGenerating ? (
+            <ProjectGeneratingLoader />
+          ) : (
+            <Tabs
+              className="h-full gap-y-0"
+              defaultValue="Preview"
+              value={tabState}
+              onValueChange={(value) => setTabState(value as "Preview" | "Code")}
+            >
+              <div className="w-full flex items-center p-2 border-b gap-x-2">
+                <TabsList className="h-8 p-0 border rounded-md">
+                  <TabsTrigger value="Preview" className="rounded-md">
+                    <EyeIcon /> <span>Demo</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="Code" className="rounded-md">
+                    <CodeIcon /> <span>Code</span>
+                  </TabsTrigger>
+                </TabsList>
+                <div className="ml-auto flex items-center gap-x-2">
+                  <Button asChild size="sm" variant="default">
+                    <Link href="/pricing">
+                      <CrownIcon /> Upgrade
+                    </Link>
+                  </Button>
+                </div>
               </div>
-            </div>
 
-            <TabsContent value="Preview">
-              {!!activeFragment && <FragmentWeb data={activeFragment} />}
-            </TabsContent>
+              <TabsContent value="Preview">
+                {!!activeFragment && <FragmentWeb data={activeFragment} />}
+              </TabsContent>
 
-            <TabsContent value="Code" className="min-h-0">
-              {!!activeFragment?.files && (
-                <FileExplorer
-                  files={activeFragment.files as { [path: string]: string }}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="Code" className="min-h-0">
+                {!!activeFragment?.files && (
+                  <FileExplorer
+                    files={activeFragment.files as { [path: string]: string }}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

@@ -55,9 +55,10 @@
 - Node.js 18+ 
 - npm/yarn/pnpm
 - PostgreSQL database
-- E2B API key
-- OpenAI API key
-- Inngest account
+- Clerk account (for authentication)
+- E2B API key (for code execution)
+- OpenAI API key (for AI agent)
+- Inngest account (for background jobs)
 
 ### Setup
 
@@ -68,7 +69,7 @@
    ```
 
 2. **Install dependencies**
-   ```bash
+```bash
    npm install
    # or
    yarn install
@@ -77,22 +78,27 @@
    ```
 
 3. **Environment Configuration**
-   Create a `.env` file in the root directory:
+   Copy `env.example` to `.env` and fill in your credentials:
+   ```bash
+   cp env.example .env
+   ```
+   
+   Required environment variables:
    ```env
    # Database
    DATABASE_URL="postgresql://username:password@localhost:5432/vibe"
    
+   # Authentication (Clerk)
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+   CLERK_SECRET_KEY="sk_test_..."
+   
    # AI Services
    OPENAI_API_KEY="sk-..."
-   E2B_API_KEY="your-e2b-api-key"
+   E2B_API_KEY="e2b_..."
    
    # Inngest
-   INNGEST_EVENT_KEY="your-inngest-event-key"
-   INNGEST_SIGNING_KEY="your-inngest-signing-key"
-   
-   # Next.js
-   NEXTAUTH_SECRET="your-nextauth-secret"
-   NEXTAUTH_URL="http://localhost:3000"
+   INNGEST_EVENT_KEY="..."
+   INNGEST_SIGNING_KEY="signkey-..."
    ```
 
 4. **Database Setup**
@@ -257,11 +263,11 @@ npm run start
 Ensure all environment variables are set in your production environment:
 
 - `DATABASE_URL`: Production PostgreSQL connection string
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` & `CLERK_SECRET_KEY`: Clerk production keys
 - `OPENAI_API_KEY`: OpenAI API key with sufficient credits
 - `E2B_API_KEY`: E2B production API key
 - `INNGEST_EVENT_KEY` & `INNGEST_SIGNING_KEY`: Production Inngest keys
-- `NEXTAUTH_SECRET`: Cryptographically secure random string
-- `NEXTAUTH_URL`: Your production domain
+- `NEXT_PUBLIC_APP_URL`: Your production domain URL
 
 ## 🔐 Security Considerations
 

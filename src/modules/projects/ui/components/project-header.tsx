@@ -11,6 +11,7 @@ import {
 
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
+import { AuthButton } from "@/components/auth/auth-button";
 
 import {
   DropdownMenu,
@@ -96,6 +97,7 @@ export const ProjectHeader = ({ projectId }: Props) =>{
 
       </DropdownMenuContent>
     </DropdownMenu>
+    <AuthButton />
   </header>
 );
 

@@ -100,7 +100,7 @@ export const codeAgentFunction = inngest.createFunction(
       description: "An expert coding Agent",
       system: PROMPT,
       model: openai({
-        model: "gpt-5",
+        model: "gpt-5-mini",
         
       }),
 
